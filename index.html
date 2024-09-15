@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Go Chat Example App</title>
+</head>
+<style>
+    :root {
+        --primary: #010409;
+        --primary-foreground: #ffffff;
+        --secondary: #0d1117;
+        --secondary-foreground: #30363d;
+        --cute: #d2a8ff;
+    }
+
+    html,
+    body {
+        margin: -1px;
+        padding: 1px;
+        width: 80%;
+        margin: 0 auto;
+        background-color: var(--primary);
+        color: var(--primary-foreground);
+        font-family: 'Trebuchet MS', 'Lucida Sans Unicode', 'Lucida Grande', 'Lucida Sans', Arial, sans-serif;
+    }
+
+    * {
+        box-sizing: border-box;
+    }
+
+    .container {
+        display: flex;
+        flex-direction: column;
+        height: 60vh;
+    }
+
+    .log {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+    }
+
+    #chat-log {
+        border: 1px solid var(--secondary-foreground);
+        border-radius: 5px;
+        background-color: var(--secondary);
+        flex: 1;
+        padding: 10px;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        overflow: auto;
+    }
+
+    #chat-log .log .msg {
+        display: inline-block;
+        padding: 10px;
+        font-size: 14px;
+        border: 1px solid var(--secondary-foreground);
+        border-radius: 5px;
+        background-color: var(--primary);
+    }
+
+    #chat-form {
+        display: flex;
+        flex-direction: row;
+        padding: 10px 0;
+        gap: 10px;
+    }
+
+    input {
+        font: inherit;
+        color: inherit;
+        border: 1px solid var(--secondary-foreground);
+        border-radius: 5px;
+        padding: 8px;
+        font-size: 17px;
+        background-color: var(--secondary);
+    }
+
+    button {
+        font: inherit;
+        color: inherit;
+        border-radius: 5px;
+        border: 1px solid var(--secondary-foreground);
+        background-color: var(--cute);
+        color: var(--secondary);
+        min-width: 100px;
+        cursor: pointer;
+    }
+
+    #chat-form .msg {
+        flex: 1;
+    }
+
+    #chat-log .log .avatar {
+        display: grid;
+        height: 32px;
+        width: auto;
+        aspect-ratio: 1;
+        place-content: center;
+        text-align: center;
+        padding: 0;
+        border-radius: 100px;
+        background: #d2a8ff21;
+        border: 0;
+    }
+
+    .info {
+        padding: 10px;
+        font-size: 14px;
+        color: #ddd;
+        opacity: 0.4;
+        width: 100%;
+        text-align: center;
+    }
+</style>
+<script type="text/javascript" defer>
+    window.onload = function () {
+        var conn;
+        var form = document.getElementById("msg");
+        var chatLog = document.getElementById("chat-log");
+        console.log
+
+        // append msg element to chat-log and scroll of needed
+        function appendLog(item) {
+            // var doScroll = chatLog.scrollTop > chatLog.scrollHeight - chatLog.clientHeight - 1;
+            chatLog.appendChild(item);
+            chatLog.scrollTo(0, chatLog.scrollHeight)
+            // if (doScroll) {
+            //     chatLog.scrollTop = chatLog.scrollHeight - chatLog.clientHeight;
+            // }
+        }
+
+        // on submit of form
+        document.getElementById("chat-form").onsubmit = function (e) {
+            e.preventDefault();
+            e.stopPropagation();
+
+            if (!conn) {
+                return false;
+            }
+
+            if (!msg.value) {
+                return false
+            }
+            conn.send(msg.value);
+            msg.value = "";
+            return false;
+        }
+
+
+        // stablish websocket connection if browser have capability
+        if (window["WebSocket"]) {
+            conn = new WebSocket("ws://" + document.location.host + "/ws" + document.location.search)
+
+            conn.onclose = function (e) {
+                var item = document.createElement("div");
+                item.innerHTML = "<b class='conn-closed'>Connection closed.</b>";
+                appendLog(item);
+            }
+
+            conn.onopen = function (e) {
+                var item = document.createElement("div");
+                item.innerHTML = "<b class='conn-open'>Connection Opened.</b>";
+                appendLog(item);
+                console.log(e);
+            }
+
+            conn.onmessage = function (e) {
+                console.log(e);
+                var messages = e.data.split('\n');
+                // <div class="log">
+                //     <div>Hello, how are you doing?</div>
+                // </div>
+                for (var i = 0; i < messages.length; i++) {
+                    var item = document.createElement("div");
+                    item.classList.add("log")
+                    const msgData = JSON.parse(messages[i], null);
+                    if (msgData.type === "info") {
+                        let msgEl = document.createElement("div");
+                        msgEl.classList.add("info")
+                        msgEl.innerText = msgData.text;
+                        item.appendChild(msgEl)
+                    } else if (msgData.type === "msg") {
+                        item.classList.add("msg-wrapper")
+                        let msgEl = document.createElement("div");
+                        msgEl.classList.add("msg")
+                        let avatar = document.createElement("div");
+                        avatar.classList.add("avatar");
+                        avatar.innerText = msgData.clientID[0] || "U"
+                        msgEl.innerText = msgData.text;
+                        item.appendChild(avatar)
+                        item.appendChild(msgEl)
+                    }
+                    appendLog(item);
+                }
+
+            }
+        } else {
+            var item = document.createElement("div");
+            item.innerHTML = "<b class='conn-closed'>Your browser does not support WebSockets.</b>";
+            appendLog(item);
+        }
+
+
+    }
+</script>
+
+<body>
+    <div>
+        <h1>Chat App</h1>
+        <p>This is a chat appliation using GO</p>
+    </div>
+
+    <div class="container">
+        <div id="chat-log">
+            <!-- Chat data here -->
+        </div>
+        <div class="form-container">
+            <form id="chat-form">
+                <input required class="msg" type="text" name="msg" id="msg" autofocus>
+                <button type="submit">Send</button>
+            </form>
+        </div>
+    </div>
+</body>
+
+</html>
